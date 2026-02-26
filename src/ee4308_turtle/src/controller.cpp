@@ -1,4 +1,7 @@
 #include "ee4308_turtle/controller.hpp"
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace ee4308::turtle
 {
@@ -54,12 +57,110 @@ namespace ee4308::turtle
 
         // get goal pose (contains the "clicked" goal rotation and position)
         geometry_msgs::msg::PoseStamped goal_pose = global_plan_.poses.back();
+        
+        //some helpful lambda functions
+        auto clamp = [](double v, double lo, double hi) {
+            // limits a value within a range
+            return std::min(std::max(v, lo), hi);
+        };
 
-        // get lookahead?
-        geometry_msgs::msg::PoseStamped lookahead_pose = goal_pose;
+        auto wrap_pi = [](double a) {
+            while (a > M_PI) a -= 2.0 * M_PI;
+            while (a < -M_PI) a += 2.0 * M_PI;
+            return a;
+        };
 
-        double linear_vel = 0 * (lookahead_pose.pose.position.x - rbt_pose.pose.position.x);
-        double angular_vel = 0 * ee4308::getYawFromQuaternion(goal_pose.pose.orientation);
+        auto hypot2 = [](double x, double y) { return std::sqrt(x * x + y * y); };
+
+        const double rx = rbt_pose.pose.position.x;
+        const double ry = rbt_pose.pose.position.y;
+        const double r_yaw = ee4308::getYawFromQuaternion(rbt_pose.pose.orientation);
+
+        const double gx = goal_pose.pose.position.x;
+        const double gy = goal_pose.pose.position.y;
+        const double g_yaw = ee4308::getYawFromQuaternion(goal_pose.pose.orientation);
+
+        const double dist_to_goal = hypot2(gx - rx, gy - ry);
+        const double yaw_err = wrap_pi(g_yaw - r_yaw);
+
+        // Stop condition: close to within position and yaw threshold
+        if (dist_to_goal <= xy_goal_thres_ && std::fabs(yaw_err) <= yaw_goal_thres_)
+        {
+            return writeCmdVel(0.0, 0.0);
+        }
+
+        // Goal position but yaw isn't done yet, will rotate in place
+        if (dist_to_goal <= xy_goal_thres_)
+        {
+            const double k_yaw = 1.5; // P controller
+            const double w = clamp(k_yaw * yaw_err, -max_angular_vel_, max_angular_vel_);
+            return writeCmdVel(0.0, w);
+        }
+
+        // Pure pursuit: Find closest point on the path
+        size_t closest_idx = 0;
+        double best_d2 = std::numeric_limits<double>::infinity();
+        for (size_t i = 0; i < global_plan_.poses.size(); ++i)
+        {
+            const double px = global_plan_.poses[i].pose.position.x;
+            const double py = global_plan_.poses[i].pose.position.y;
+            const double dx = px - rx;
+            const double dy = py - ry;
+            const double d2 = dx * dx + dy * dy;
+            if (d2 < best_d2)
+            {
+                best_d2 = d2;
+                closest_idx = i;
+            }
+        }
+
+        // Pure pursuit: Choose a lookahead point
+        const double Ld_des = std::max(0.05, desired_lookahead_dist_);
+        geometry_msgs::msg::PoseStamped lookahead_pose = goal_pose; // fallback
+        for (size_t i = closest_idx; i < global_plan_.poses.size(); ++i)
+        {
+            const double px = global_plan_.poses[i].pose.position.x;
+            const double py = global_plan_.poses[i].pose.position.y;
+            if (hypot2(px - rx, py - ry) >= Ld_des)
+            {
+                lookahead_pose = global_plan_.poses[i];
+                break;
+            }
+        }
+
+        // Pure pursuit: Transform lookahead point into robot frame
+        const double lx = lookahead_pose.pose.position.x;
+        const double ly = lookahead_pose.pose.position.y;
+        const double dx = lx - rx;
+        const double dy = ly - ry;
+
+        const double c = std::cos(r_yaw);
+        const double s = std::sin(r_yaw);
+
+        const double x_r = c * dx + s * dy;
+        const double y_r = -s * dx + c * dy;
+
+        // Not a pure pursuit: Handle lookahead point is behind
+        if (x_r <= 1e-4)
+        {
+            const double w = clamp(1.0 * std::atan2(y_r, x_r), -max_angular_vel_, max_angular_vel_);
+            return writeCmdVel(0.0, w);
+        }
+
+        const double Ld = std::max(1e-4, hypot2(x_r, y_r));
+
+        // Pure pursuit: Curvature and action
+        const double curvature = (2.0 * y_r) / (Ld * Ld);
+
+        double linear_vel = desired_linear_vel_;
+        linear_vel = std::min(linear_vel, max_linear_vel_);
+        if (dist_to_goal < 0.30) 
+        {
+            linear_vel *= clamp(dist_to_goal / 0.30, 0.1, 1.0);
+        }
+
+        double angular_vel = linear_vel * curvature;
+        angular_vel = clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
 
         return writeCmdVel(linear_vel, angular_vel);
     }
