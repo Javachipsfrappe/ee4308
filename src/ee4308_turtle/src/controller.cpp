@@ -12,64 +12,41 @@ namespace ee4308::turtle
     {
         (void)costmap_ros;
 
-        // initialize states / variables
-        this->node_ = parent.lock(); // this class is not a node_. It is instantiated as part of a node_ `parent`.
+        this->node_ = parent.lock();
         this->tf_ = tf;
         this->plugin_name_ = name;
 
-        // initialize parameters
         ee4308::initParam(this->node_, this->plugin_name_ + ".desired_linear_vel", this->desired_linear_vel_, 0.2);
         ee4308::initParam(this->node_, this->plugin_name_ + ".desired_lookahead_dist", this->desired_lookahead_dist_, 0.4);
+        ee4308::initParam(this->node_, this->plugin_name_ + ".lookahead_gain", this->lookahead_gain_, 0.5);
+        ee4308::initParam(this->node_, this->plugin_name_ + ".min_lookahead_dist", this->min_lookahead_dist_, 0.05);
+        ee4308::initParam(this->node_, this->plugin_name_ + ".max_lookahead_dist", this->max_lookahead_dist_, 1.0);
         ee4308::initParam(this->node_, this->plugin_name_ + ".max_angular_vel", this->max_angular_vel_, 1.0);
         ee4308::initParam(this->node_, this->plugin_name_ + ".max_linear_vel", this->max_linear_vel_, 0.22);
         ee4308::initParam(this->node_, this->plugin_name_ + ".xy_goal_thres", this->xy_goal_thres_, 0.05);
-        ee4308::initParam(this->node_, this->plugin_name_ + ".yaw_goal_thres", this->yaw_goal_thres_, 0.25);
-
-        // initialize topics
-        // this->sub_scan_ = this->node_->create_subscription<sensor_msgs::msg::LaserScan>(
-        //     "scan", rclcpp::SensorDataQoS(),
-        //     std::bind(&Controller::callbackSubScan_, this, std::placeholders::_1));
     }
-
-    // void Controller::callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg)
-    // {
-    //     this->scan_ranges_ = msg->ranges;
-    // }
 
     geometry_msgs::msg::TwistStamped Controller::computeVelocityCommands(
         const geometry_msgs::msg::PoseStamped &rbt_pose_odom,
         const geometry_msgs::msg::Twist &velocity,
         nav2_core::GoalChecker *goal_checker)
     {
-        (void)velocity;     // not used
-        (void)goal_checker; // not used
+        (void)goal_checker;
 
-        // check if path exists
         if (global_plan_.poses.empty())
         {
             RCLCPP_WARN_STREAM(node_->get_logger(), "Global plan is empty!");
-            return writeCmdVel(0, 0);
+            return writeCmdVel(0.0, 0.0);
         }
 
-        // get rbt's pose in map frame (DO NOT DELETE --> need the next two lines for rbt_pose)
         geometry_msgs::msg::PoseStamped rbt_pose;
         tf_->transform(rbt_pose_odom, rbt_pose, "map");
 
-        // get goal pose (contains the "clicked" goal rotation and position)
-        geometry_msgs::msg::PoseStamped goal_pose = global_plan_.poses.back();
-        
-        //some helpful lambda functions
+        const auto &goal_pose = global_plan_.poses.back();
+
         auto clamp = [](double v, double lo, double hi) {
-            // limits a value within a range
             return std::min(std::max(v, lo), hi);
         };
-
-        auto wrap_pi = [](double a) {
-            while (a > M_PI) a -= 2.0 * M_PI;
-            while (a < -M_PI) a += 2.0 * M_PI;
-            return a;
-        };
-
         auto hypot2 = [](double x, double y) { return std::sqrt(x * x + y * y); };
 
         const double rx = rbt_pose.pose.position.x;
@@ -78,26 +55,14 @@ namespace ee4308::turtle
 
         const double gx = goal_pose.pose.position.x;
         const double gy = goal_pose.pose.position.y;
-        const double g_yaw = ee4308::getYawFromQuaternion(goal_pose.pose.orientation);
 
         const double dist_to_goal = hypot2(gx - rx, gy - ry);
-        const double yaw_err = wrap_pi(g_yaw - r_yaw);
-
-        // Stop condition: close to within position and yaw threshold
-        if (dist_to_goal <= xy_goal_thres_ && std::fabs(yaw_err) <= yaw_goal_thres_)
+        if (dist_to_goal <= xy_goal_thres_)
         {
             return writeCmdVel(0.0, 0.0);
         }
 
-        // Goal position but yaw isn't done yet, will rotate in place
-        if (dist_to_goal <= xy_goal_thres_)
-        {
-            const double k_yaw = 1.5; // P controller
-            const double w = clamp(k_yaw * yaw_err, -max_angular_vel_, max_angular_vel_);
-            return writeCmdVel(0.0, w);
-        }
-
-        // Pure pursuit: Find closest point on the path
+        // Find closest point on path
         size_t closest_idx = 0;
         double best_d2 = std::numeric_limits<double>::infinity();
         for (size_t i = 0; i < global_plan_.poses.size(); ++i)
@@ -114,8 +79,13 @@ namespace ee4308::turtle
             }
         }
 
-        // Pure pursuit: Choose a lookahead point
-        const double Ld_des = std::max(0.05, desired_lookahead_dist_);
+        // Vary lookahead with speed
+        const double v_now = std::fabs(velocity.linear.x);
+        const double Ld_des = clamp(
+            desired_lookahead_dist_ + lookahead_gain_ * v_now,
+            min_lookahead_dist_, max_lookahead_dist_);
+
+        // Pick lookahead point
         geometry_msgs::msg::PoseStamped lookahead_pose = goal_pose; // fallback
         for (size_t i = closest_idx; i < global_plan_.poses.size(); ++i)
         {
@@ -128,7 +98,7 @@ namespace ee4308::turtle
             }
         }
 
-        // Pure pursuit: Transform lookahead point into robot frame
+        // Transform lookahead point into robot frame
         const double lx = lookahead_pose.pose.position.x;
         const double ly = lookahead_pose.pose.position.y;
         const double dx = lx - rx;
@@ -140,43 +110,18 @@ namespace ee4308::turtle
         const double x_r = cy * dx + sy * dy;
         const double y_r = -sy * dx + cy * dy;
 
-        // Not a pure pursuit: Handle lookahead point is behind
+        // If lookahead is behind, rotate to face it
         if (x_r <= 1e-4)
         {
-            const double w = clamp(1.0 * std::atan2(y_r, x_r), -max_angular_vel_, max_angular_vel_);
+            const double w = clamp(std::atan2(y_r, x_r), -max_angular_vel_, max_angular_vel_);
             return writeCmdVel(0.0, w);
         }
 
         const double Ld = std::max(1e-4, hypot2(x_r, y_r));
-
         const double curvature = (2.0 * y_r) / (Ld * Ld);
 
-        // Base speed (v')
-        const double v_prime = std::min(desired_linear_vel_, max_linear_vel_);
-
-        // Curvature magnitude (c_h)
-        const double c_h = std::fabs(curvature);
-
-        // Curvature threshold (c)  -> tune this
-        const double c = 1;  // [1/m], bigger = less slowing, smaller = more slowing
-
-        double linear_vel = v_prime;
-
-        // Curvature-based speed regulation (slow down when curvature is high)
-        // (This is the common practical form: high curvature => lower speed)
-        if (c_h > c)
-        {
-            linear_vel = v_prime * (c / c_h);
-        }
-
-        if (dist_to_goal < 0.10) 
-        {
-            linear_vel *= clamp(dist_to_goal / 0.30, 0.1, 1.0);
-        }
-
-        // Compute angular velocity as usual
-        double angular_vel = linear_vel * curvature;
-        angular_vel = clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
+        const double linear_vel = std::min(desired_linear_vel_, max_linear_vel_);
+        const double angular_vel = clamp(linear_vel * curvature, -max_angular_vel_, max_angular_vel_);
 
         return writeCmdVel(linear_vel, angular_vel);
     }
@@ -191,12 +136,8 @@ namespace ee4308::turtle
         return cmd_vel;
     }
 
-    // ======================================== DO NOT TOUCH =================================
-
     void Controller::cleanup() { RCLCPP_INFO_STREAM(this->node_->get_logger(), "Cleaning up plugin " << plugin_name_ << " of type ee4308::turtle::Controller"); }
-
     void Controller::activate() { RCLCPP_INFO_STREAM(this->node_->get_logger(), "Activating plugin " << plugin_name_ << " of type ee4308::turtle::Controller"); }
-
     void Controller::deactivate() { RCLCPP_INFO_STREAM(this->node_->get_logger(), "Deactivating plugin " << plugin_name_ << " of type ee4308::turtle::Controller"); }
 
     void Controller::setSpeedLimit(const double &speed_limit, const bool &percentage)

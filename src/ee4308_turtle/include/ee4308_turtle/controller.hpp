@@ -1,18 +1,13 @@
+#pragma once
+
 #include <algorithm>
-#include <string>
-#include <vector>
 #include <memory>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
-#include "pluginlib/class_loader.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "nav2_core/controller.hpp"
-#include "tf2/utils.h"
-#include "tf2/LinearMath/Quaternion.hpp"
-#include "sensor_msgs/msg/laser_scan.hpp"
 #include "ee4308_turtle/core.hpp"
-
-#pragma once
 
 namespace ee4308::turtle
 {
@@ -45,19 +40,17 @@ namespace ee4308::turtle
 
         // parameters
         double desired_linear_vel_;
-        double desired_lookahead_dist_;
+        double desired_lookahead_dist_;   // base lookahead distance
+        double lookahead_gain_;           // extra lookahead per (m/s)
+        double min_lookahead_dist_;
+        double max_lookahead_dist_;
         double max_angular_vel_;
         double max_linear_vel_;
         double xy_goal_thres_;
-        double yaw_goal_thres_;
 
-        // topics 
+        // plan
         nav_msgs::msg::Path global_plan_;
-        // std::vector<float> scan_ranges_;
-        // rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
-        // void callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg);
 
-        // other "protected" functions
         geometry_msgs::msg::TwistStamped writeCmdVel(double linear_vel, double angular_vel);
     };
 
