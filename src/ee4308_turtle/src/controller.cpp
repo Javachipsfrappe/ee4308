@@ -134,11 +134,11 @@ namespace ee4308::turtle
         const double dx = lx - rx;
         const double dy = ly - ry;
 
-        const double c = std::cos(r_yaw);
-        const double s = std::sin(r_yaw);
+        const double cy = std::cos(r_yaw);
+        const double sy = std::sin(r_yaw);
 
-        const double x_r = c * dx + s * dy;
-        const double y_r = -s * dx + c * dy;
+        const double x_r = cy * dx + sy * dy;
+        const double y_r = -sy * dx + cy * dy;
 
         // Not a pure pursuit: Handle lookahead point is behind
         if (x_r <= 1e-4)
@@ -149,16 +149,32 @@ namespace ee4308::turtle
 
         const double Ld = std::max(1e-4, hypot2(x_r, y_r));
 
-        // Pure pursuit: Curvature and action
         const double curvature = (2.0 * y_r) / (Ld * Ld);
 
-        double linear_vel = desired_linear_vel_;
-        linear_vel = std::min(linear_vel, max_linear_vel_);
-        if (dist_to_goal < 0.30) 
+        // Base speed (v')
+        const double v_prime = std::min(desired_linear_vel_, max_linear_vel_);
+
+        // Curvature magnitude (c_h)
+        const double c_h = std::fabs(curvature);
+
+        // Curvature threshold (c)  -> tune this
+        const double c = 1;  // [1/m], bigger = less slowing, smaller = more slowing
+
+        double linear_vel = v_prime;
+
+        // Curvature-based speed regulation (slow down when curvature is high)
+        // (This is the common practical form: high curvature => lower speed)
+        if (c_h > c)
+        {
+            linear_vel = v_prime * (c / c_h);
+        }
+
+        if (dist_to_goal < 0.10) 
         {
             linear_vel *= clamp(dist_to_goal / 0.30, 0.1, 1.0);
         }
 
+        // Compute angular velocity as usual
         double angular_vel = linear_vel * curvature;
         angular_vel = clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
 
