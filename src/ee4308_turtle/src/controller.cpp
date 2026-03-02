@@ -24,17 +24,21 @@ namespace ee4308::turtle
         ee4308::initParam(this->node_, this->plugin_name_ + ".max_linear_vel", this->max_linear_vel_, 0.22);
         ee4308::initParam(this->node_, this->plugin_name_ + ".xy_goal_thres", this->xy_goal_thres_, 0.05);
         ee4308::initParam(this->node_, this->plugin_name_ + ".yaw_goal_thres", this->yaw_goal_thres_, 0.25);
+        ee4308::initParam(this->node_, this->plugin_name_ + ".prox_dist", this->prox_dist_, 0.6);   // d_prox
+        ee4308::initParam(this->node_, this->plugin_name_ + ".prox_fov_deg", this->prox_fov_deg_, 60.0); // +/- FOV
 
         // initialize topics
-        // this->sub_scan_ = this->node_->create_subscription<sensor_msgs::msg::LaserScan>(
-        //     "scan", rclcpp::SensorDataQoS(),
-        //     std::bind(&Controller::callbackSubScan_, this, std::placeholders::_1));
+        this->sub_scan_ = this->node_->create_subscription<sensor_msgs::msg::LaserScan>(
+            "scan", rclcpp::SensorDataQoS(),
+            std::bind(&Controller::callbackSubScan_, this, std::placeholders::_1));
     }
 
-    // void Controller::callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg)
-    // {
-    //     this->scan_ranges_ = msg->ranges;
-    // }
+    void Controller::callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg)
+    {
+        this->scan_ranges_ = msg->ranges;
+        angle_min_ = msg->angle_min;
+        angle_increment_ = msg->angle_increment;
+    }
 
     geometry_msgs::msg::TwistStamped Controller::computeVelocityCommands(
         const geometry_msgs::msg::PoseStamped &rbt_pose_odom,
@@ -151,33 +155,59 @@ namespace ee4308::turtle
 
         const double curvature = (2.0 * y_r) / (Ld * Ld);
 
-        // Base speed (v')
-        const double v_prime = std::min(desired_linear_vel_, max_linear_vel_);
+        // Base speed (no curvature-based scaling)
+        double linear_vel = std::min(desired_linear_vel_, max_linear_vel_);
 
-        // Curvature magnitude (c_h)
-        const double c_h = std::fabs(curvature);
-
-        // Curvature threshold (c)  -> tune this
-        const double c = 1;  // [1/m], bigger = less slowing, smaller = more slowing
-
-        double linear_vel = v_prime;
-
-        // Curvature-based speed regulation (slow down when curvature is high)
-        // (This is the common practical form: high curvature => lower speed)
-        if (c_h > c)
+        // ---------- Proximity heuristic ----------
+        if (!scan_ranges_.empty())
         {
-            linear_vel = v_prime * (c / c_h);
+            // Find minimum obstacle distance in a front cone
+            // Assumes scan is in base frame and angle_min..angle_max are valid
+            // If your LaserScan meta isn't stored, this is the main "risk" (see notes below).
+            
+            // NOTE: If you don't store angle_min / increment in callback, you must use msg directly.
+            // So recommended: store angle_min_, angle_inc_ too in callback.
         }
 
-        if (dist_to_goal < 0.10) 
+        // Simple robust version: store angle_min_ and angle_increment_ in callbackSubScan_
+        // then do:
+
+        double d_o = std::numeric_limits<double>::infinity();
+
+        if (!scan_ranges_.empty())
         {
-            linear_vel *= clamp(dist_to_goal / 0.30, 0.1, 1.0);
+            const double half_fov = (prox_fov_deg_ * M_PI / 180.0) * 0.5;
+
+            for (size_t i = 0; i < scan_ranges_.size(); ++i)
+            {
+                const double ang = angle_min_ + static_cast<double>(i) * angle_increment_;
+                if (std::fabs(ang) > half_fov) continue;
+
+                const double r = static_cast<double>(scan_ranges_[i]);
+                if (!std::isfinite(r)) continue;
+                d_o = std::min(d_o, r);
+            }
+
+            // Proximity scaling: v = v * (d_o / d_prox) if d_o < d_prox
+            if (std::isfinite(d_o) && d_o < prox_dist_)
+            {
+                linear_vel *= (d_o / prox_dist_);
+            }
         }
 
-        // Compute angular velocity as usual
+        // clamp (purely safety)
+        linear_vel = clamp(linear_vel, 0.0, max_linear_vel_);
+
+        // Pure pursuit angular command (unchanged structure)
         double angular_vel = linear_vel * curvature;
         angular_vel = clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
 
+        double heading_err = std::atan2(y_r, x_r); // in robot frame
+
+        if (std::abs(heading_err) > 1.0) { // ~57 degrees
+            linear_vel = 0.0;
+            angular_vel = clamp(1.0 * heading_err, -max_angular_vel_, max_angular_vel_);
+        }
         return writeCmdVel(linear_vel, angular_vel);
     }
 

@@ -16,7 +16,7 @@ def generate_launch_description():
     # ================ 2. LAUNCH ARGUMENTS ==============
     arg_map = DeclareLaunchArgument(
         "map",
-        default_value="proj1",
+        default_value="proj1_sim",
         description="Name of the yaml map file to load. Must be in ee4308_bringup/maps, and without the file extension.",
     )
     ld.add_action(arg_map)

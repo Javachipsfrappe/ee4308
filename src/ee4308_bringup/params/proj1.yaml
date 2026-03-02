@@ -24,7 +24,9 @@ controller_server:
       max_angular_vel: 1.0
       max_linear_vel: 0.22
       xy_goal_thres: 0.05
-      yaw_goal_thres: 0.25
+      yaw_goal_thres: 0.05
+      prox_dist: 0.4
+      prox_fov_deg: 30.0
 
     enable_stamped_cmd_vel: true
 
@@ -34,7 +36,7 @@ planner_server:
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "ee4308::turtle::Planner"
-      max_access_cost: 200
+      max_access_cost: 100
       interpolation_distance: 0.05
 
 amcl:
@@ -152,8 +154,8 @@ local_costmap:
       plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.5
-        cost_scaling_factor: 5.0
+        inflation_radius: 0.1
+        cost_scaling_factor: 7.0
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -240,7 +242,7 @@ global_costmap:
         transform_tolerance: 0.1
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.5
+        inflation_radius: 0.1
         cost_scaling_factor: 5.0
       always_send_full_costmap: true
 

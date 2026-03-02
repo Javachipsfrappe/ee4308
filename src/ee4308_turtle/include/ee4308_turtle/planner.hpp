@@ -4,6 +4,7 @@
 #include <memory>
 #include <queue>
 #include <deque>
+#include <limits>
 
 #include "rclcpp/rclcpp.hpp"
 #include "pluginlib/class_loader.hpp"
@@ -73,6 +74,12 @@ namespace ee4308::turtle
         // parameters
         int max_access_cost_;
         double interpolation_distance_;
+        int sg_half_window_;
+        int sg_order_;
+
+        // helper functions for Savitsky-Golay smoothing
+        Eigen::RowVectorXd computeSGKernel_(int half_window, int order);
+        nav_msgs::msg::Path smoothPath_(const nav_msgs::msg::Path &raw_path);
 
         std::pair<int, int> XYToCR_(double x, double y);
         int CRToIndex_(int c, int r);

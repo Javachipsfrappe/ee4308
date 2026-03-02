@@ -53,9 +53,17 @@ namespace ee4308::turtle
 
         // topics 
         nav_msgs::msg::Path global_plan_;
-        // std::vector<float> scan_ranges_;
-        // rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
-        // void callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg);
+
+        // Proximity heuristic (LaserScan)
+        rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
+        std::vector<float> scan_ranges_;
+        double angle_min_{0.0};
+        double angle_increment_{0.0};
+
+        double prox_dist_{0.6};
+        double prox_fov_deg_{60.0};
+
+        void callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg);
 
         // other "protected" functions
         geometry_msgs::msg::TwistStamped writeCmdVel(double linear_vel, double angular_vel);
