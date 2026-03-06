@@ -159,18 +159,6 @@ namespace ee4308::turtle
         double linear_vel = std::min(desired_linear_vel_, max_linear_vel_);
 
         // ---------- Proximity heuristic ----------
-        if (!scan_ranges_.empty())
-        {
-            // Find minimum obstacle distance in a front cone
-            // Assumes scan is in base frame and angle_min..angle_max are valid
-            // If your LaserScan meta isn't stored, this is the main "risk" (see notes below).
-            
-            // NOTE: If you don't store angle_min / increment in callback, you must use msg directly.
-            // So recommended: store angle_min_, angle_inc_ too in callback.
-        }
-
-        // Simple robust version: store angle_min_ and angle_increment_ in callbackSubScan_
-        // then do:
 
         double d_o = std::numeric_limits<double>::infinity();
 
@@ -195,16 +183,16 @@ namespace ee4308::turtle
             }
         }
 
-        // clamp (purely safety)
+        // clamp
         linear_vel = clamp(linear_vel, 0.0, max_linear_vel_);
 
-        // Pure pursuit angular command (unchanged structure)
+        // Pure pursuit angular command 
         double angular_vel = linear_vel * curvature;
         angular_vel = clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
 
         double heading_err = std::atan2(y_r, x_r); // in robot frame
 
-        if (std::abs(heading_err) > 1.0) { // ~57 degrees
+        if (std::abs(heading_err) > 1.0) { 
             linear_vel = 0.0;
             angular_vel = clamp(1.0 * heading_err, -max_angular_vel_, max_angular_vel_);
         }
