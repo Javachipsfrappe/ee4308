@@ -13,18 +13,24 @@ controller_server:
 
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.05
-      yaw_goal_tolerance: 0.05
+      xy_goal_tolerance: 0.2
+      yaw_goal_tolerance: 0.08
       stateful: True
 
     FollowPath:
       plugin: "ee4308::turtle::Controller"
-      desired_linear_vel: 0.2
+      desired_linear_vel: 0.18
       desired_lookahead_dist: 0.4
       max_angular_vel: 1.0
       max_linear_vel: 0.22
       xy_goal_thres: 0.05
       yaw_goal_thres: 0.25
+      # Add these new RPP parameters below
+      curvature_thres: 0.1
+      proximity_thres: 0.2
+      lookahead_gain: 1.1
+      angular_kp: 0.8
+      angular_ki: 0.01
 
     enable_stamped_cmd_vel: true
 
@@ -34,7 +40,7 @@ planner_server:
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "ee4308::turtle::Planner"
-      max_access_cost: 200
+      max_access_cost: 150
       interpolation_distance: 0.05
 
 amcl:
@@ -152,8 +158,8 @@ local_costmap:
       plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.5
-        cost_scaling_factor: 5.0
+        inflation_radius: 0.45
+        cost_scaling_factor: 5.5
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
