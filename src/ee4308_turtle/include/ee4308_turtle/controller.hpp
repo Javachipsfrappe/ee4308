@@ -1,3 +1,5 @@
+#pragma once
+
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -11,8 +13,6 @@
 #include "tf2/LinearMath/Quaternion.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "ee4308_turtle/core.hpp"
-
-#pragma once
 
 namespace ee4308::turtle
 {
@@ -51,11 +51,26 @@ namespace ee4308::turtle
         double xy_goal_thres_;
         double yaw_goal_thres_;
 
+        // Regulated Pure Pursuit parameters
+        double curvature_thres_; 
+        double proximity_thres_; 
+        double lookahead_gain_;
+
+        // PI controller for angular velocity (angle to lookahead)
+        double angular_kp_;
+        double angular_ki_;
+
+        // Regulated Pure Pursuit state variables
+        double prev_linear_vel_;
+        double adj_lookahead_dist_;
+        double angular_integral_;
+        rclcpp::Time last_angular_time_;
+
         // topics 
         nav_msgs::msg::Path global_plan_;
-        // std::vector<float> scan_ranges_;
-        // rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
-        // void callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg);
+        std::vector<float> scan_ranges_;
+        rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
+        void callbackSubScan_(sensor_msgs::msg::LaserScan::SharedPtr msg);
 
         // other "protected" functions
         geometry_msgs::msg::TwistStamped writeCmdVel(double linear_vel, double angular_vel);
