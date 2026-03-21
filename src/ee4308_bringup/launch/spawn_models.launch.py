@@ -1,18 +1,13 @@
-import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import (
     LaunchConfiguration,
     PathJoinSubstitution,
     EqualsSubstitution,
+    FileContent,
 )
-
-import xacro
-import os
-from ament_index_python.packages import get_package_share_directory
 from launch.conditions import IfCondition
 
 
@@ -35,6 +30,12 @@ def generate_launch_description():
     )
     ld.add_action(arg_turtle_y)
 
+    # Launch Arg: turtle_z
+    arg_turtle_z = DeclareLaunchArgument(
+        "turtle_z", default_value="0.01", description="z position of the turtle."
+    )
+    ld.add_action(arg_turtle_z)
+
     # Launch Arg: drone_x
     arg_drone_x = DeclareLaunchArgument(
         "drone_x", default_value="-2.0", description="x position of the drone for project 1."
@@ -43,9 +44,15 @@ def generate_launch_description():
 
     # Launch Arg: drone_y
     arg_drone_y = DeclareLaunchArgument(
-        "drone_y", default_value="-2.0", description="y position of the drone for project 2."
+        "drone_y", default_value="-2.0", description="y position of the drone."
     )
     ld.add_action(arg_drone_y)
+
+    # Launch Arg: drone_z
+    arg_drone_z = DeclareLaunchArgument(
+        "drone_z", default_value="0.05", description="z position of the drone."
+    )
+    ld.add_action(arg_drone_z)
 
     # Launch Arg: project
     arg_project = DeclareLaunchArgument(
@@ -54,18 +61,10 @@ def generate_launch_description():
     ld.add_action(arg_project)
 
     # Get the turtle URDF file.
-    path_turtle_urdf = os.path.join(
-        get_package_share_directory("ee4308_bringup"), "models", "turtle", "turtle.urdf"
-    )
-    with open(path_turtle_urdf, "r") as infp:
-        desc_turtle = infp.read()
+    path_turtle_urdf = PathJoinSubstitution([pkg_ee4308_bringup, "models", "turtle", "turtle.urdf"])
 
-    # Get the drone URDF file.
-    path_drone_urdf = os.path.join(
-        get_package_share_directory("ee4308_bringup"), "models", "drone", "drone.urdf"
-    )
-    with open(path_drone_urdf, "r") as infp:
-        desc_drone = infp.read()
+    # Get the drone URDF file. # TODO: Use python substitution to avoid running this in mode 1.
+    path_drone_urdf = PathJoinSubstitution([pkg_ee4308_bringup, "models", "drone", "drone.urdf"])
 
     # ======================== Project 1 ==============================
     condition_proj1 = IfCondition(EqualsSubstitution(LaunchConfiguration("project"), "1"))
@@ -79,7 +78,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "robot_description": desc_turtle,
+                "robot_description": FileContent(path_turtle_urdf),
                 "use_sim_time": True,
                 "frame_prefix": "/",
             },
@@ -119,8 +118,8 @@ def generate_launch_description():
             LaunchConfiguration("turtle_x"),
             "-y",
             LaunchConfiguration("turtle_y"),
-            "-z",
-            "0.01",
+            "-z",            
+            LaunchConfiguration("turtle_z"),
         ],
         output="screen",
     )
@@ -138,7 +137,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "robot_description": desc_turtle,  # ParameterValue(Command(['xacro ', path_turtle_model]), value_type=str), # Parameter Value required to wrap around xacro (if file accidentally contains colons).
+                "robot_description": FileContent(path_turtle_urdf),  # ParameterValue(Command(['xacro ', path_turtle_model]), value_type=str), # Parameter Value required to wrap around xacro (if file accidentally contains colons).
                 "use_sim_time": True,
                 "frame_prefix": "turtle/",
             },
@@ -156,7 +155,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "robot_description": desc_drone,  # ParameterValue(Command(['xacro ', path_turtle_model]), value_type=str), # Parameter Value required to wrap around xacro (if file accidentally contains colons).
+                "robot_description": FileContent(path_drone_urdf),  # ParameterValue(Command(['xacro ', path_turtle_model]), value_type=str), # Parameter Value required to wrap around xacro (if file accidentally contains colons).
                 "use_sim_time": True,
                 "frame_prefix": "drone/",
             },
@@ -198,21 +197,34 @@ def generate_launch_description():
             LaunchConfiguration("turtle_x"),
             "-y",
             LaunchConfiguration("turtle_y"),
-            "-z",
-            "0.01",
+            "-z",            
+            LaunchConfiguration("turtle_z"),
         ],
         output="screen",
     )
     ld.add_action(node_spawn_turtle_2)
 
+    # static transform for turtle
+    node_turtle_static_tf_2 = Node(
+        namespace="turtle",
+        package='tf2_ros',
+        name='turtle_static_tf',
+        executable='static_transform_publisher',
+        arguments=["--x", "0", "--y", "0", "--z", "0",
+           "--yaw", "0", "--pitch", "0", "--roll", "0",
+           "--frame-id", "map", "--child-frame-id", "turtle/odom"],
+        
+        output='screen'
+    )
+    ld.add_action(node_turtle_static_tf_2)
 
-    # Spawn turtle in "/turtle" namespace
+    # Spawn drone in "/drone" namespace
     path_drone_sdf_2 = PathJoinSubstitution(
-        [pkg_ee4308_bringup, "models", "drone", "model_proj2.sdf"]
+        [pkg_ee4308_bringup, "models", "drone", "drone_proj2.sdf"]
     )
     node_spawn_drone_2 = Node(
         condition=condition_proj2,
-        namespace="turtle",
+        namespace="drone",
         package="ros_gz_sim",
         executable="create",
         arguments=[
@@ -225,10 +237,37 @@ def generate_launch_description():
             "-y",
             LaunchConfiguration("drone_y"),
             "-z",
-            "0.01",
+            LaunchConfiguration("drone_z"),
         ],
         output="screen",
     )
     ld.add_action(node_spawn_drone_2)
+
+    # static transform from map to drone/odom
+    node_drone_static_tf_2 = Node(
+        namespace="drone",
+        package='tf2_ros',
+        name='drone_static_tf',
+        executable='static_transform_publisher',
+        arguments=["--x", "0", "--y", "0", "--z", "0",
+           "--yaw", "0", "--pitch", "0", "--roll", "0",
+           "--frame-id", "map", "--child-frame-id", "drone/odom"],
+        output='screen'
+    )
+    ld.add_action(node_drone_static_tf_2)
+
+    # odom to drone/base_footprint is provided by the multicopter_velocity_controller, and has non-zero z transformations (i.e. is the base link) which is against rep120.
+    # static transform for drone/base_footprint to drone/base_link
+    node_drone_static_tf_base_link_2 = Node(
+        namespace="drone",
+        package='tf2_ros',
+        name='drone_static_tf2',
+        executable='static_transform_publisher',
+        arguments=["--x", "0", "--y", "0", "--z", "0",
+           "--yaw", "0", "--pitch", "0", "--roll", "0",
+           "--frame-id", "drone/base_footprint", "--child-frame-id", "drone/base_link"],
+        output='screen'
+    )
+    ld.add_action(node_drone_static_tf_base_link_2)
 
     return ld

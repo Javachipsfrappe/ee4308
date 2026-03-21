@@ -54,6 +54,18 @@
       filename="gz-sim-magnetometer-system"
       name="gz::sim::systems::Magnetometer">
     </plugin>
+    <plugin 
+      filename="gz-sim-navsat-system" 
+      name="gz::sim::systems::NavSat">
+    </plugin>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>1.298690111340627</latitude_deg>
+      <longitude_deg>103.77244044627294</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
 
     <include>
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Ground Plane</uri>

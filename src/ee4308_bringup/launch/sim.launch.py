@@ -3,7 +3,6 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch_ros.substitutions import FindPackageShare
 from launch.actions import SetEnvironmentVariable, AppendEnvironmentVariable
-from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import (
     LaunchConfiguration,
     PathJoinSubstitution,

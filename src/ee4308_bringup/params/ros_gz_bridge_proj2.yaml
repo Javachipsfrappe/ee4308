@@ -1,0 +1,97 @@
+# gz topic published by the simulator core
+- ros_topic_name: "clock"
+  gz_topic_name: "clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# gz topic published by JointState plugin
+- ros_topic_name: "turtle/joint_states"
+  gz_topic_name: "turtle/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# tf from turtle's DiffDrive plugin
+- ros_topic_name: "tf"
+  gz_topic_name: "tf"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS
+
+# turtle cmd vel
+- ros_topic_name: "turtle/cmd_vel"
+  gz_topic_name: "turtle/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/TwistStamped" # If you use Twist, you need to change the type to Twist
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# gz topic published by JointState plugin
+- ros_topic_name: "drone/joint_states"
+  gz_topic_name: "drone/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# tf published by drone's MulticopterVelocityControl plugin
+- ros_topic_name: "tf"
+  gz_topic_name: "model/drone/pose"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS
+
+# ground truth odom published by drone's MulticopterVelocityControl plugin
+- ros_topic_name: "drone/true_odom"
+  gz_topic_name: "model/drone/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# drone enable message
+- ros_topic_name: "drone/enable"
+  gz_topic_name: "drone/enable"
+  ros_type_name: "std_msgs/msg/Bool"
+  gz_type_name: "gz.msgs.Boolean"
+  direction: ROS_TO_GZ
+
+# drone air pressure message
+- ros_topic_name: "drone/air_pressure"
+  gz_topic_name: "drone/air_pressure"
+  ros_type_name: "sensor_msgs/msg/FluidPressure"
+  gz_type_name: "gz.msgs.FluidPressure"
+  direction: GZ_TO_ROS
+
+# drone magnetometer message
+- ros_topic_name: "drone/magnetic"
+  gz_topic_name: "drone/magnetometer"
+  ros_type_name: "sensor_msgs/msg/MagneticField"
+  gz_type_name: "gz.msgs.Magnetometer"
+  direction: GZ_TO_ROS
+
+# drone imu message
+- ros_topic_name: "drone/imu"
+  gz_topic_name: "drone/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# drone sonar message
+- ros_topic_name: "drone/sonar"
+  gz_topic_name: "drone/sonar"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# drone gps message
+- ros_topic_name: "drone/fix"
+  gz_topic_name: "drone/fix"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "gz.msgs.NavSat"
+  direction: GZ_TO_ROS
+
+# drone cmd vel
+- ros_topic_name: "drone/cmd_vel"
+  gz_topic_name: "drone/command/twist"
+  ros_type_name: "geometry_msgs/msg/Twist" # If you use Twist, you need to change the type to Twist
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
