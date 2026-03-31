@@ -70,7 +70,7 @@ For all filenames, label as `p2_team##` (**lowercase**), where `##` is the doubl
 | --- | --- |
 | P2C | Zip selected files into `p2_team##.zip` and submit. See the directory structure below. The component is benchmarked in simulation (make sure the tuned parameters can perform adequately in simulation). Marks are given depending on the demonstration video and the quality of improvements. The robot should move efficiently; neither too fast nor slow. |
 | P2R | A report `p2_team##.pdf`. **Do not include your names in the report, only the matric numbers**. About 10 to 15 pages (no hard limit) excluding front-matter and back-matter. In a good report, the existing algorithms are examined in detail and simple solutions are proposed to significantly improve the algorithms. Deliberate comparisons are made to compare solutions, and advice is given based on realistic situations. Experiments and methodologies to tune parameters are well designed and justified. The narrative is concise and clear. Any figures, tables and references are labelled. There is a title page and content page, and the report is tidy and well organized. **Please include a page on each member's contribution**. |
-| P2P | A demonstration video `p2_team##.mp4` showing a physical run in the lab's obstacle course. Questions will be asked based on each member's contribution. |
+| P2P | A demonstration video `p2_team##.mp4` showing a simulated run. Questions will be asked based on each member's contribution. |
 
 
 Ensure that the P2C zip file follows the structure and names below:
