@@ -283,7 +283,7 @@ The following variables / functions should be used. **Those listed as parameters
 | `received_odom_` | `bool` | No | Read only. It is `true` only after the first `odom_` message, and hence information on the drone's pose and twist, is received. |
 | `max_xy_vel_` | `double` | Yes | To read the maximum horizontal velocity in the $x$ and $y$ plane. Must be set to no larger than `1.0` in `proj2.yaml`. |
 | `max_z_vel_` | `double` | Yes | To read the maximum vertical velocity along the $z$ axis. Must be set to no larger than `0.5` in `proj2.yaml`. |
-| `yaw_vel_` | `double` | Yes | To read the required yaw velocity while the drone is moving. Must be set to `-0.3` in `proj2.yaml`. |
+| `yaw_vel_` | `double` | Yes | To read the required yaw velocity while the drone is moving. |
 | `lookahead_distance_` | `double` | Yes | To read the lookahead distance. Must be set to no larger than `1.0` in `proj2.yaml`. |
 | `publishCmdVel_()` | `function` | No | Use this function to send command velocities. |
 
